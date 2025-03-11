@@ -149,7 +149,7 @@ void AGeneratedHelpers::ControllerAccountCallback(ControllerAccount *account)
 
 void AGeneratedHelpers::ExecuteRawDeprecated(const FAccount& account, const FString& to, const FString& selector, const FString& calldataParameter)
 {
-    Async(EAsyncExecution::Thread, [this, to, selector, calldataParameter]()
+    Async(EAsyncExecution::Thread, [this, account, to, selector, calldataParameter]()
     {
         std::vector<std::string> felts;
         if (strcmp(TCHAR_TO_UTF8(*calldataParameter), "") != 0) {
@@ -160,7 +160,7 @@ void AGeneratedHelpers::ExecuteRawDeprecated(const FAccount& account, const FStr
                 felts.push_back(felt);
             }
         }
-        FDojoModule::ExecuteRaw(account, TCHAR_TO_UTF8(*to), TCHAR_TO_UTF8(*selector), felts);
+        FDojoModule::ExecuteRaw(account.account, TCHAR_TO_UTF8(*to), TCHAR_TO_UTF8(*selector), felts);
     });
 }
 
@@ -338,7 +338,7 @@ void AGeneratedHelpers::ParseModelsAndSend(struct CArrayStruct* models)
 
 void AGeneratedHelpers::CallSpawn(const FAccount& account)
 {
-    this->ExecuteRaw(account, this->ContractsAddresses["actions"], TEXT("spawn"), TEXT(""));
+    this->ExecuteRawDeprecated(account, this->ContractsAddresses["actions"], TEXT("spawn"), TEXT(""));
 }
 
 void AGeneratedHelpers::CallMove(const FAccount& account, int direction)
@@ -346,7 +346,7 @@ void AGeneratedHelpers::CallMove(const FAccount& account, int direction)
     FString args;
     args += "0x000000000000000000000000000000000000000000000000000000000000000";
     args += FString::FromInt(direction);
-    this->ExecuteRaw(account, this->ContractsAddresses["actions"], TEXT("move"), args);
+    this->ExecuteRawDeprecated(account, this->ContractsAddresses["actions"], TEXT("move"), args);
 }
 
 // CONTROLLER FUNCTIONS
