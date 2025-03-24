@@ -94,6 +94,7 @@ void AGeneratedHelpers::ControllerAccountCallback(ControllerAccount *account)
     Async(EAsyncExecution::TaskGraphMainThread, [this, account]() {
         FControllerAccount controllerAccount;
         controllerAccount.account = account;
+        controllerAccount.Address = FDojoModule::ControllerAccountAddress(account);
         FOnDojoControllerAccount.Broadcast(controllerAccount);
     });
 }
@@ -160,7 +161,7 @@ void AGeneratedHelpers::SubscribeOnDojoModelUpdate()
         return;
     }
     if (toriiClient == nullptr) {
-        UE_LOG(LogTemp, Log, TEXT("Error: ."));
+        UE_LOG(LogTemp, Log, TEXT("Error: Torii Client is not initialized."));
         return;
     }
     subscribed = true;
@@ -178,7 +179,7 @@ void AGeneratedHelpers::CallbackProxy(struct FieldElement key, struct CArrayStru
 template<typename T>
 static void ConvertTyToUnrealEngineType(const Member* member, const char* expectedName, const char* expectedType, T& output);
 
-        class TypeConverter {
+class TypeConverter {
 public:
     static FString ConvertToFString(const Member* member) {
         switch (member->ty->primitive.tag) {
@@ -410,7 +411,9 @@ static void ConvertTyToUnrealEngineType(const Member* member, const char* expect
     
 
     //FDojoModule::TyFree(member->ty);
-}UDojoModel* AGeneratedHelpers::parseDojoStarterDirectionsAvailableModel(struct Struct* model)
+}
+
+UDojoModel* AGeneratedHelpers::parseDojoStarterDirectionsAvailableModel(struct Struct* model)
 {
     UDojoModelDojoStarterDirectionsAvailable* Model = NewObject<UDojoModelDojoStarterDirectionsAvailable>();
     CArrayMember* members = &model->children;
@@ -480,18 +483,18 @@ void AGeneratedHelpers::ParseModelsAndSend(struct CArrayStruct* models)
 
         UDojoModel* ParsedModel = nullptr;
         
-        if (strcmp(ModelName, "dojo_starter-DirectionsAvailable") == 0)
-        {
-            ParsedModel = AGeneratedHelpers::parseDojoStarterDirectionsAvailableModel(&models->data[Index]);
-        }
-        else if (strcmp(ModelName, "dojo_starter-Moves") == 0)
-        {
-            ParsedModel = AGeneratedHelpers::parseDojoStarterMovesModel(&models->data[Index]);
-        }
-        else if (strcmp(ModelName, "dojo_starter-Position") == 0)
-        {
-            ParsedModel = AGeneratedHelpers::parseDojoStarterPositionModel(&models->data[Index]);
-        }
+            if (strcmp(ModelName, "dojo_starter-DirectionsAvailable") == 0)
+            {
+                ParsedModel = AGeneratedHelpers::parseDojoStarterDirectionsAvailableModel(&models->data[Index]);
+            }
+            else if (strcmp(ModelName, "dojo_starter-Moves") == 0)
+            {
+                ParsedModel = AGeneratedHelpers::parseDojoStarterMovesModel(&models->data[Index]);
+            }
+            else if (strcmp(ModelName, "dojo_starter-Position") == 0)
+            {
+                ParsedModel = AGeneratedHelpers::parseDojoStarterPositionModel(&models->data[Index]);
+            }
         else
         {
             UE_LOG(LogTemp, Warning, TEXT("ParseModelsAndSend: Unknown model type %s"), UTF8_TO_TCHAR(ModelName));
