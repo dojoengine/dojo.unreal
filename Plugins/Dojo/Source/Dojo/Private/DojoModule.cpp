@@ -26,7 +26,18 @@ void FDojoModule::ShutdownModule()
 
 }
 
-static void string_to_bytes(const std::string& hex_str, uint8_t* out_bytes, size_t max_bytes) {
+FString FDojoModule::bytes_to_fstring(const uint8_t* data, size_t length, bool addPrefix) {
+    if (data == nullptr || length == 0)
+        return TEXT("0x");
+
+    FString result = addPrefix ? TEXT("0x") : TEXT("");
+    for (size_t i = 0; i < length; ++i) {
+        result += FString::Printf(TEXT("%02x"), data[i]);
+    }
+    return result;
+}
+
+void FDojoModule::string_to_bytes(const std::string& hex_str, uint8_t* out_bytes, size_t max_bytes) {
     // Skip "0x" prefix if present
     size_t start_idx = (hex_str.substr(0, 2) == "0x") ? 2 : 0;
 
@@ -58,17 +69,6 @@ static void string_to_bytes(const std::string& hex_str, uint8_t* out_bytes, size
     }
 }
 
-static FString bytes_to_fstring(const uint8_t* data, size_t length, bool addPrefix = true) {
-    if (data == nullptr || length == 0)
-        return TEXT("0x");
-
-    FString result = addPrefix ? TEXT("0x") : TEXT("");
-    for (size_t i = 0; i < length; ++i) {
-        result += FString::Printf(TEXT("%02x"), data[i]);
-    }
-    return result;
-}
-
 ToriiClient *FDojoModule::CreateToriiClient(const char *torii_url, const char *world_str)
 {
     UE_LOG(LogTemp, Log, TEXT("Connecting Torii Client..."));
@@ -76,7 +76,7 @@ ToriiClient *FDojoModule::CreateToriiClient(const char *torii_url, const char *w
     UE_LOG(LogTemp, Log, TEXT("World: %hs"), world_str);
 
     FieldElement world;
-    string_to_bytes(world_str, world.data, 32);
+    FDojoModule::string_to_bytes(world_str, world.data, 32);
 
     ResultToriiClient resClient = client_new(torii_url, "/ip4/127.0.0.1/tcp/9090", world);
     if (resClient.tag == ErrToriiClient)
@@ -110,15 +110,15 @@ ResultCArrayEntity FDojoModule::GetEntities(ToriiClient *client, const char *que
 void FDojoModule::ControllerGetAccountOrConnect(const char* rpc_url, const char* chain_id, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback)
 {
     FieldElement chain_id_felt;
-    string_to_bytes(chain_id, chain_id_felt.data, 32);
-    ResultControllerAccount resAccount = controller_account(policies, nb_policies, chain_id_felt);
-    if (resAccount.tag == ErrControllerAccount) {
+    FDojoModule::string_to_bytes(chain_id, chain_id_felt.data, 32);
+//    ResultControllerAccount resAccount = controller_account(policies, nb_policies, chain_id_felt);
+//    if (resAccount.tag == ErrControllerAccount) {
         controller_connect(rpc_url, policies, nb_policies, callback);
         return;
-    }
-    ControllerAccount *account = resAccount.ok;
+//    }
+//    ControllerAccount *account = resAccount.ok;
     //TODO: sometimes the account is not deployed on Slot if the Katana has been redeployed for example, need to find a way to validate the account
-    callback(account);
+//    callback(account);
 }
 
 Account *FDojoModule::CreateAccount(const char* rpc_url, const char *player_address, const char *private_key_str)
@@ -133,7 +133,7 @@ Account *FDojoModule::CreateAccount(const char* rpc_url, const char *player_addr
     Provider *provider = resProvider.ok;
 
     FieldElement private_key;
-    string_to_bytes(private_key_str, private_key.data, 32);
+    FDojoModule::string_to_bytes(private_key_str, private_key.data, 32);
 
     UE_LOG(LogTemp, Log, TEXT("EXECUTE RAW : create account"));
 
@@ -175,7 +175,7 @@ Account *FDojoModule::CreateBurner(const char* rpc_url, Account *master_account)
 void FDojoModule::ExecuteRaw(Account *account, const char *to, const char *selector, const std::vector<std::string>& feltsStr)
 {
     struct FieldElement actions;
-    string_to_bytes(to, actions.data, 32);
+    FDojoModule::string_to_bytes(to, actions.data, 32);
 
     struct FieldElement *felts = nullptr;
     int nbFelts = feltsStr.size();
@@ -184,7 +184,7 @@ void FDojoModule::ExecuteRaw(Account *account, const char *to, const char *selec
         felts = reinterpret_cast<struct FieldElement *>(malloc(sizeof(*felts) * nbFelts));
         memset(felts, 0, sizeof(*felts) * nbFelts);
         for (int i = 0; i < nbFelts; i++) {
-            string_to_bytes(feltsStr[i].c_str(), felts[i].data, 32);
+            FDojoModule::string_to_bytes(feltsStr[i].c_str(), felts[i].data, 32);
         }
     }
 
@@ -207,7 +207,7 @@ void FDojoModule::ExecuteRaw(Account *account, const char *to, const char *selec
 void FDojoModule::ExecuteFromOutside(ControllerAccount *account, const char *to, const char *selector, const std::vector<std::string>& feltsStr)
 {
     struct FieldElement actions;
-    string_to_bytes(to, actions.data, 32);
+    FDojoModule::string_to_bytes(to, actions.data, 32);
 
     struct FieldElement *felts = nullptr;
     int nbFelts = feltsStr.size();
@@ -216,7 +216,7 @@ void FDojoModule::ExecuteFromOutside(ControllerAccount *account, const char *to,
         felts = reinterpret_cast<struct FieldElement *>(malloc(sizeof(*felts) * nbFelts));
         memset(felts, 0, sizeof(*felts) * nbFelts);
         for (int i = 0; i < nbFelts; i++) {
-            string_to_bytes(feltsStr[i].c_str(), felts[i].data, 32);
+            FDojoModule::string_to_bytes(feltsStr[i].c_str(), felts[i].data, 32);
         }
     }
 
@@ -238,7 +238,12 @@ void FDojoModule::ExecuteFromOutside(ControllerAccount *account, const char *to,
 
 FString FDojoModule::AccountAddress(Account *account)
 {
-    return bytes_to_fstring(account_address(account).data, 32);
+    return FDojoModule::bytes_to_fstring(account_address(account).data, 32);
+}
+
+FString FDojoModule::ControllerAccountAddress(ControllerAccount *account)
+{
+    return FDojoModule::bytes_to_fstring(controller_address(account).data, 32);
 }
 
 struct ResultSubscription FDojoModule::OnEntityUpdate(ToriiClient *client, const char *query_str, void *user_data, EntityUpdateCallback callback)
