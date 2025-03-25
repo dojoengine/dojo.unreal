@@ -41,8 +41,8 @@ fn spawn(ref self: ContractState) {
 1. Open the project in Unreal Engine 5
 2. If you didn't start your Katana with a seed = 0, click on DojoGameLogic and change the addresses in the Inspector. Double check the dojo_starter-actions address using `sozo inspect`
 3. Update the Chain Id using [Stark Utils](https://www.stark-utils.xyz/converter)
-   a. Type "WP_YOURSLOTINSTANCENAME", if the instance is called dojostarter, then use WP_DOJOSTARTER
-   b. Copy the hex field and add enough 0 after 0x so that the length is 64 (66 with 0x)
-   c. Paste this in Chain Id in the DojoGameLogic Inspector
+- Type "WP_YOURSLOTINSTANCENAME", if the instance is called dojostarter, then use WP_DOJOSTARTER
+- Copy the hex field and add enough 0 after 0x so that the length is 64 (66 with 0x)
+- Paste this in Chain Id in the DojoGameLogic Inspector
 4. Press Play, it should open the Controller interface in a browser. Connect and then go back to the game.
 5. Use W,A,S,D to move your boat
