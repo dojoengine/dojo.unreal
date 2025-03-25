@@ -111,14 +111,19 @@ void FDojoModule::ControllerGetAccountOrConnect(const char* rpc_url, const char*
 {
     FieldElement chain_id_felt;
     FDojoModule::string_to_bytes(chain_id, chain_id_felt.data, 32);
-//    ResultControllerAccount resAccount = controller_account(policies, nb_policies, chain_id_felt);
-//    if (resAccount.tag == ErrControllerAccount) {
+    ResultControllerAccount resAccount = controller_account(policies, nb_policies, chain_id_felt);
+    if (resAccount.tag == ErrControllerAccount) {
         controller_connect(rpc_url, policies, nb_policies, callback);
         return;
-//    }
-//    ControllerAccount *account = resAccount.ok;
-    //TODO: sometimes the account is not deployed on Slot if the Katana has been redeployed for example, need to find a way to validate the account
-//    callback(account);
+    }
+    ControllerAccount *account = resAccount.ok;
+    //TODO: sometimes the account is not deployed on Slot if the Katana has been redeployed for example, need to find a way to validate the account, using a call to get the hash for example
+    callback(account);
+}
+
+void FDojoModule::ControllerConnect(const char* rpc_url, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback)
+{
+    controller_connect(rpc_url, policies, nb_policies, callback);
 }
 
 Account *FDojoModule::CreateAccount(const char* rpc_url, const char *player_address, const char *private_key_str)

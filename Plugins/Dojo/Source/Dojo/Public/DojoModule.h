@@ -45,6 +45,8 @@ public:
 
     static void ControllerGetAccountOrConnect(const char* rpc_url, const char* chain_id, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback);
 
+    static void ControllerConnect(const char* rpc_url, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback);
+    
     static void SubscriptionCancel(struct Subscription *subscription);
     
     static void AccountFree(struct Account *account);
