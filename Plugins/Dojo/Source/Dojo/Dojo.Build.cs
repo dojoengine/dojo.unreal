@@ -39,7 +39,7 @@ public class Dojo : ModuleRules
             RuntimeDependencies.Add("$(PluginDir)/Source/Dojo/" + Version + "/lib/Mac/libdojo_c.dylib");
             
             // Delay load the dylib
-            PublicDelayLoadDLLs.Add("libdojo_c.dylib");
+            PublicDelayLoadDLLs.Add(Path.Combine(LibraryPath, "Mac", "libdojo_c.dylib"));
         }
         else if (Target.Platform == UnrealTargetPlatform.IOS)
         {
