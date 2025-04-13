@@ -5,7 +5,7 @@ using System.IO;
 
 public class Dojo : ModuleRules
 {
-    protected readonly string Version = "1.2.2";
+    protected readonly string Version = "1.3.1";
     protected string VersionPath { get => Path.Combine(ModuleDirectory, Version); }
     protected string LibraryPath { get => Path.Combine(VersionPath, "lib"); }
 
