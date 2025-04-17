@@ -104,7 +104,7 @@ ResultCArrayEntity FDojoModule::GetEntities(ToriiClient *client, const char *que
         array.ok.data_len = 0;
         return array;
     }
-    return client_entities(client, &query);
+    return client_entities(client, &query, false);
 }
 
 void FDojoModule::ControllerGetAccountOrConnect(const char* rpc_url, const char* chain_id, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback)
