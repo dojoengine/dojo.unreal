@@ -109,8 +109,14 @@ ResultCArrayEntity FDojoModule::GetEntities(ToriiClient *client, const char *que
 
 void FDojoModule::ControllerGetAccountOrConnect(const char* rpc_url, const char* chain_id, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback)
 {
+    // Format chain_id to get a string with a length of 66 starting with 0x
+    char formatted_chain_id[67] = "0x";
+    memset(formatted_chain_id + 2, '0', 64);
+    size_t value_len = strlen(chain_id) - 2;
+    memcpy(&formatted_chain_id[66 - value_len], chain_id + 2, value_len);
+
     FieldElement chain_id_felt;
-    FDojoModule::string_to_bytes(chain_id, chain_id_felt.data, 32);
+    FDojoModule::string_to_bytes(formatted_chain_id, chain_id_felt.data, 32);
     ResultControllerAccount resAccount = controller_account(policies, nb_policies, chain_id_felt);
     if (resAccount.tag == ErrControllerAccount) {
         controller_connect(rpc_url, policies, nb_policies, callback);

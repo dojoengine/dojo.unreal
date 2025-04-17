@@ -79,12 +79,12 @@ What you need before opening the project:
 - Torii URL (https://api.cartridge.gg/x/ue5demo/torii)
 - World address (0x0193e3437b867035092ddd89f1c09281e51e2d21692457d6e8e65f680ee05fe8)
 - Contracts addresses (dojo_starter-actions 0x0430c8d737a9bc14260694620cbc79c11998afb6ecdcb1fb129b61de7b095660)
-- Chain ID (0x0000000000000000000000000000000000000000000057505f55453544454d4f)
+- Chain ID (0x57505f55453544454d4f)
 
 To get the Chain ID:
 - Visit [Stark Utils](https://www.stark-utils.xyz/converter)
-- Type "WP_YOURSLOTINSTANCENAME", if the instance is called dojostarter, then use WP_DOJOSTARTER
-- Copy the "hex" field and add 0 after 0x so that the total length is 64 (66 with 0x)
+- Type "WP_YOURSLOTINSTANCENAME". The name is written when starting a Torii instance on slot. If the instance is called dojostarter, then use WP_DOJOSTARTER
+- Copy the "hex" field
 
 1. Open the project in Unreal Engine 5
 2. Click on DojoGameLogic in the Hierarchy and update the values in the Inspector.
