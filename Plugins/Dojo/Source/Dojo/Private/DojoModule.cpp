@@ -39,32 +39,49 @@ FString FDojoModule::bytes_to_fstring(const uint8_t* data, size_t length, bool a
 
 void FDojoModule::string_to_bytes(const std::string& hex_str, uint8_t* out_bytes, size_t max_bytes) {
     // Skip "0x" prefix if present
-    size_t start_idx = (hex_str.substr(0, 2) == "0x") ? 2 : 0;
+    size_t start_idx = (hex_str.length() >= 2 && hex_str.substr(0, 2) == "0x") ? 2 : 0;
 
     // Calculate actual string length without prefix
     size_t hex_length = hex_str.length() - start_idx;
 
-    // Handle odd number of characters by assuming leading zero
-    bool is_odd = hex_length % 2 != 0;
-    size_t num_bytes = (hex_length + is_odd) / 2;
+    // If hex string has odd number of characters, we need to pad with leading zero
+    std::string normalized_hex_str = hex_str;
+    if (hex_length % 2 != 0) {
+        // Insert a '0' after the prefix (or at the beginning if no prefix)
+        normalized_hex_str.insert(start_idx, "0");
+        hex_length += 1;
+    }
 
-    // Ensure we don't overflow the output buffer
-    if (num_bytes > max_bytes) {
+    // Calculate expected length (32 bytes = 64 hex characters)
+    size_t expected_hex_length = max_bytes * 2;
+
+    // Clear output buffer first
+    memset(out_bytes, 0, max_bytes);
+
+    // If hex string is longer than expected, truncate
+    if (hex_length > expected_hex_length) {
         return;
-//        throw std::runtime_error("Input hex string too long for output buffer");
     }
 
-    size_t out_idx = 0;
+    // Calculate how many leading zeros we need to pad
+    size_t leading_zeros = (expected_hex_length - hex_length) / 2;
 
-    // Handle first nibble separately if we have odd number of characters
-    if (is_odd) {
-        std::string nibble = hex_str.substr(start_idx, 1);
-        out_bytes[out_idx++] = static_cast<uint8_t>(std::stoul(nibble, nullptr, 16));
-    }
+    // Start writing at the appropriate offset (after leading zeros)
+    size_t out_idx = leading_zeros;
 
     // Process two hex digits at a time
-    for (size_t i = is_odd ? 1 : 0; i < hex_length; i += 2) {
-        std::string byte_str = hex_str.substr(start_idx + i, 2);
+    for (size_t i = 0; i < hex_length; i += 2) {
+        if (out_idx >= max_bytes) break;
+
+        std::string byte_str;
+        if (i + 1 < hex_length) {
+            // We have a complete pair of hex digits
+            byte_str = normalized_hex_str.substr(start_idx + i, 2);
+        } else {
+            // Only one hex digit remaining, pad with leading zero
+            byte_str = "0" + normalized_hex_str.substr(start_idx + i, 1);
+        }
+
         out_bytes[out_idx++] = static_cast<uint8_t>(std::stoul(byte_str, nullptr, 16));
     }
 }
@@ -78,7 +95,7 @@ ToriiClient *FDojoModule::CreateToriiClient(const char *torii_url, const char *w
     FieldElement world;
     FDojoModule::string_to_bytes(world_str, world.data, 32);
 
-    ResultToriiClient resClient = client_new(torii_url, "/ip4/127.0.0.1/tcp/9090", world);
+    ResultToriiClient resClient = client_new(torii_url, world);
     if (resClient.tag == ErrToriiClient)
     {
         UE_LOG(LogTemp, Log, TEXT("Failed to create client: %hs"), resClient.err.message);
@@ -89,34 +106,65 @@ ToriiClient *FDojoModule::CreateToriiClient(const char *torii_url, const char *w
     return client;
 }
 
-ResultCArrayEntity FDojoModule::GetEntities(ToriiClient *client, const char *query_str)
+ResultPageEntity FDojoModule::GetEntities(ToriiClient *client, int limit, const char *cursor)
 {
-    // TODO: handle query
-    struct Query query;
-    memset(&query, 0, sizeof(query));
-    query.limit = 100;
-    query.offset = 0;
-    query.clause.tag = NoneClause;
-    query.dont_include_hashed_keys = true;
     if (client == nullptr) {
-        ResultCArrayEntity array;
-        array.tag = OkCArrayEntity;
-        array.ok.data_len = 0;
+        UE_LOG(LogTemp, Warning, TEXT("GetEntities: Client is null, returning empty result"));
+        ResultPageEntity array;
+        array.tag = OkPageEntity;
+        array.ok.items.data_len = 0;
         return array;
     }
-    return client_entities(client, &query, false);
+
+    UE_LOG(LogTemp, Log, TEXT("GetEntities: Setting up query"));
+    Query query;
+    memset(&query, 0, sizeof(query));
+
+    query.pagination.cursor.tag = cursor == nullptr ? Nonec_char : Somec_char;
+    if (cursor) {
+        UE_LOG(LogTemp, Log, TEXT("GetEntities: Using cursor: %hs"), cursor);
+        query.pagination.cursor.some = cursor;
+    } else {
+        UE_LOG(LogTemp, Log, TEXT("GetEntities: No cursor specified"));
+    }
+
+    query.pagination.limit.tag = Someu32;
+    query.pagination.limit.some = limit;
+    UE_LOG(LogTemp, Log, TEXT("GetEntities: Pagination limit set to: %d"), limit);
+
+    query.historical = true;
+    UE_LOG(LogTemp, Log, TEXT("GetEntities: Historical mode enabled"));
+
+    UE_LOG(LogTemp, Log, TEXT("GetEntities: Executing client_entities query"));
+    ResultPageEntity result = client_entities(client, query);
+
+    if (result.tag == OkPageEntity) {
+        UE_LOG(LogTemp, Log, TEXT("GetEntities: Query successful, returned %d entities"), result.ok.items.data_len);
+    } else {
+        UE_LOG(LogTemp, Error, TEXT("GetEntities: Query failed"));
+    }
+
+    return result;
 }
+//
+//void FDojoModule::ControllerGetAccountOrConnectMobile(const char* rpc_url, const char* chain_id, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback, ControllerUrlCallback url_callback)
+//{
+//    FieldElement chain_id_felt;
+//    FDojoModule::string_to_bytes(chain_id, chain_id_felt.data, 32);
+//    ResultControllerAccount resAccount = controller_account(policies, nb_policies, chain_id_felt);
+//    if (resAccount.tag == ErrControllerAccount) {
+//        controller_connect_mobile(rpc_url, policies, nb_policies, callback, url_callback);
+//        return;
+//    }
+//    ControllerAccount *account = resAccount.ok;
+//    //TODO: sometimes the account is not deployed on Slot if the Katana has been redeployed for example, need to find a way to validate the account, using a call to get the hash for example
+//    callback(account);
+//}
 
 void FDojoModule::ControllerGetAccountOrConnect(const char* rpc_url, const char* chain_id, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback)
 {
-    // Format chain_id to get a string with a length of 66 starting with 0x
-    char formatted_chain_id[67] = "0x";
-    memset(formatted_chain_id + 2, '0', 64);
-    size_t value_len = strlen(chain_id) - 2;
-    memcpy(&formatted_chain_id[66 - value_len], chain_id + 2, value_len);
-
     FieldElement chain_id_felt;
-    FDojoModule::string_to_bytes(formatted_chain_id, chain_id_felt.data, 32);
+    FDojoModule::string_to_bytes(chain_id, chain_id_felt.data, 32);
     ResultControllerAccount resAccount = controller_account(policies, nb_policies, chain_id_felt);
     if (resAccount.tag == ErrControllerAccount) {
         controller_connect(rpc_url, policies, nb_policies, callback);
@@ -131,6 +179,11 @@ void FDojoModule::ControllerConnect(const char* rpc_url, const struct Policy *po
 {
     controller_connect(rpc_url, policies, nb_policies, callback);
 }
+
+//void FDojoModule::ControllerConnectMobile(const char* rpc_url, const struct Policy *policies, size_t nb_policies, ControllerAccountCallback callback, ControllerUrlCallback url_callback)
+//{
+//    controller_connect_mobile(rpc_url, policies, nb_policies, callback, url_callback);
+//}
 
 Account *FDojoModule::CreateAccount(const char* rpc_url, const char *player_address, const char *private_key_str)
 {
@@ -151,6 +204,7 @@ Account *FDojoModule::CreateAccount(const char* rpc_url, const char *player_addr
     ResultAccount resAccount = account_new(provider, private_key, player_address);
     if (resAccount.tag == ErrAccount) {
         UE_LOG(LogTemp, Log, TEXT("Failed to create account: %hs"), resAccount.err.message);
+        provider_free(provider);  // Clean up provider on failure
         return nullptr;
     }
     Account *account = resAccount.ok;
@@ -176,6 +230,7 @@ Account *FDojoModule::CreateBurner(const char* rpc_url, Account *master_account)
     if (resBurner.tag == ErrAccount)
     {
         UE_LOG(LogTemp, Log, TEXT("Failed to create burner: %hs"), resBurner.err.message);
+        provider_free(provider);  // Clean up provider on failure
         return nullptr;
     }
     Account *account = resBurner.ok;
@@ -183,20 +238,23 @@ Account *FDojoModule::CreateBurner(const char* rpc_url, Account *master_account)
     return account;
 }
 
-void FDojoModule::ExecuteRaw(Account *account, const char *to, const char *selector, const std::vector<std::string>& feltsStr)
+void FDojoModule::ExecuteRaw(Account *account, const char *to, const char *selector, const TArray<std::string>& feltsStr)
 {
+    if (!account) {
+        UE_LOG(LogTemp, Error, TEXT("FDojoModule::ExecuteRaw - Account is null!"));
+        return;
+    }
+
     struct FieldElement actions;
     FDojoModule::string_to_bytes(to, actions.data, 32);
 
-    struct FieldElement *felts = nullptr;
-    int nbFelts = feltsStr.size();
+    int nbFelts = feltsStr.Num();
 
-    if (nbFelts > 0) {
-        felts = reinterpret_cast<struct FieldElement *>(malloc(sizeof(*felts) * nbFelts));
-        memset(felts, 0, sizeof(*felts) * nbFelts);
-        for (int i = 0; i < nbFelts; i++) {
-            FDojoModule::string_to_bytes(feltsStr[i].c_str(), felts[i].data, 32);
-        }
+    // Use RAII wrapper for automatic cleanup
+    FFieldElementArrayWrapper feltsWrapper(nbFelts);
+
+    for (int i = 0; i < nbFelts; i++) {
+        FDojoModule::string_to_bytes(feltsStr[i].c_str(), feltsWrapper[i].data, 32);
     }
 
     struct Call call = {
@@ -204,31 +262,26 @@ void FDojoModule::ExecuteRaw(Account *account, const char *to, const char *selec
         .selector = selector,
         .calldata = {
             .data_len = nbFelts,
-            .data = felts
+            .data = feltsWrapper.Get()
         }
     };
 
     account_execute_raw(account, &call, 1);
-
-    if (felts) {
-        free(felts);
-    }
+    // No manual cleanup needed - RAII wrapper handles it
 }
 
-void FDojoModule::ExecuteFromOutside(ControllerAccount *account, const char *to, const char *selector, const std::vector<std::string>& feltsStr)
+void FDojoModule::ExecuteFromOutside(ControllerAccount *account, const char *to, const char *selector, const TArray<std::string>& feltsStr)
 {
     struct FieldElement actions;
     FDojoModule::string_to_bytes(to, actions.data, 32);
 
-    struct FieldElement *felts = nullptr;
-    int nbFelts = feltsStr.size();
+    int nbFelts = feltsStr.Num();
 
-    if (nbFelts > 0) {
-        felts = reinterpret_cast<struct FieldElement *>(malloc(sizeof(*felts) * nbFelts));
-        memset(felts, 0, sizeof(*felts) * nbFelts);
-        for (int i = 0; i < nbFelts; i++) {
-            FDojoModule::string_to_bytes(feltsStr[i].c_str(), felts[i].data, 32);
-        }
+    // Use RAII wrapper for automatic cleanup
+    FFieldElementArrayWrapper feltsWrapper(nbFelts);
+
+    for (int i = 0; i < nbFelts; i++) {
+        FDojoModule::string_to_bytes(feltsStr[i].c_str(), feltsWrapper[i].data, 32);
     }
 
     struct Call call = {
@@ -236,15 +289,12 @@ void FDojoModule::ExecuteFromOutside(ControllerAccount *account, const char *to,
         .selector = selector,
         .calldata = {
             .data_len = nbFelts,
-            .data = felts
+            .data = feltsWrapper.Get()
         }
     };
 
     controller_execute_from_outside(account, &call, 1);
-
-    if (felts) {
-        free(felts);
-    }
+    // No manual cleanup needed - RAII wrapper handles it
 }
 
 FString FDojoModule::AccountAddress(Account *account)
@@ -259,7 +309,26 @@ FString FDojoModule::ControllerAccountAddress(ControllerAccount *account)
 
 struct ResultSubscription FDojoModule::OnEntityUpdate(ToriiClient *client, const char *query_str, void *user_data, EntityUpdateCallback callback)
 {
-    return client_on_entity_state_update(client, nullptr, 0, callback);
+    UE_LOG(LogTemp, Log, TEXT("FDojoModule::OnEntityUpdate - Entry"));
+    UE_LOG(LogTemp, Log, TEXT("  Client pointer: %p"), client);
+    UE_LOG(LogTemp, Log, TEXT("  Query: %hs"), query_str ? query_str : "null");
+    UE_LOG(LogTemp, Log, TEXT("  Callback pointer: %p"), callback);
+
+    COptionClause clause = {
+        .tag = NoneClause
+    };
+
+    UE_LOG(LogTemp, Log, TEXT("FDojoModule::OnEntityUpdate - About to call client_on_entity_state_update"));
+    struct ResultSubscription result = client_on_entity_state_update(client, clause, callback);
+    UE_LOG(LogTemp, Log, TEXT("FDojoModule::OnEntityUpdate - client_on_entity_state_update returned"));
+
+    if (result.tag == ErrSubscription) {
+        UE_LOG(LogTemp, Error, TEXT("FDojoModule::OnEntityUpdate - Error: %hs"), result.err.message);
+    } else {
+        UE_LOG(LogTemp, Log, TEXT("FDojoModule::OnEntityUpdate - Success, subscription pointer: %p"), result.ok);
+    }
+
+    return result;
 }
 
 void FDojoModule::SubscriptionCancel(struct Subscription *subscription)
@@ -290,4 +359,20 @@ void FDojoModule::TyFree(struct Ty *ty)
 void FDojoModule::CArrayFree(void *data, int len)
 {
     carray_free(data, len);
+}
+
+struct ResultCArrayFieldElement FDojoModule::SerializeByteArray(const FString& str)
+{
+    // Convert FString to const char*
+    std::string utf8_str = TCHAR_TO_UTF8(*str);
+    const char* c_str = utf8_str.c_str();
+
+    // Use dojo's bytearray_serialize function
+    struct ResultCArrayFieldElement result = bytearray_serialize(c_str);
+
+    if (result.tag != OkCArrayFieldElement) {
+        UE_LOG(LogTemp, Error, TEXT("SerializeByteArray failed"));
+    }
+
+    return result;
 }

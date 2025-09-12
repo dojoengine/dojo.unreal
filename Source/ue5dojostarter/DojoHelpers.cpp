@@ -134,13 +134,13 @@ void ADojoHelpers::ExecuteRawDeprecated(const FAccount& account, const FString& 
 {
     Async(EAsyncExecution::Thread, [this, account, to, selector, calldataParameter]()
     {
-        std::vector<std::string> felts;
+        TArray<std::string> felts;
         if (strcmp(TCHAR_TO_UTF8(*calldataParameter), "") != 0) {
             TArray<FString> Out;
             calldataParameter.ParseIntoArray(Out,TEXT(","),true);
             for (int i = 0; i < Out.Num(); i++) {
                 std::string felt = TCHAR_TO_UTF8(*Out[i]);
-                felts.push_back(felt);
+                felts.Add(felt);
             }
         }
         FDojoModule::ExecuteRaw(account.account, TCHAR_TO_UTF8(*to), TCHAR_TO_UTF8(*selector), \
@@ -153,13 +153,13 @@ void ADojoHelpers::ExecuteFromOutside(const FControllerAccount& account, const F
 {
     Async(EAsyncExecution::Thread, [this, account, to, selector, calldataParameter]()
     {
-        std::vector<std::string> felts;
+        TArray<std::string> felts;
         if (strcmp(TCHAR_TO_UTF8(*calldataParameter), "") != 0) {
             TArray<FString> Out;
             calldataParameter.ParseIntoArray(Out,TEXT(","),true);
             for (int i = 0; i < Out.Num(); i++) {
                 std::string felt = TCHAR_TO_UTF8(*Out[i]);
-                felts.push_back(felt);
+                felts.Add(felt);
             }
         }
         FDojoModule::ExecuteFromOutside(account.account, TCHAR_TO_UTF8(*to), \
@@ -169,24 +169,33 @@ void ADojoHelpers::ExecuteFromOutside(const FControllerAccount& account, const F
 
 void ADojoHelpers::FetchExistingModels()
 {
-    Async(EAsyncExecution::Thread, [this]()
-            {
-        ResultCArrayEntity resEntities =
-            FDojoModule::GetEntities(toriiClient, "{ not used }");
-        if (resEntities.tag == ErrCArrayEntity) {
-            UE_LOG(LogTemp, Log, TEXT("Failed to fetch entities: %hs"), \
-             resEntities.err.message);
+    Async(EAsyncExecution::Thread, [this]() {
+        UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: Starting to fetch entities"));
+        UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: ToriiClient pointer: %p"), toriiClient);
+
+        ResultPageEntity resEntities = FDojoModule::GetEntities(toriiClient, 1000, nullptr);
+        if (resEntities.tag == ErrPageEntity) {
+            UE_LOG(LogTemp, Error, TEXT("FetchExistingModels: Failed to fetch entities: %hs"), \
+            resEntities.err.message);
             return;
         }
-        CArrayEntity *entities = &resEntities.ok;
+
+        UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: Successfully fetched entities"));
+        CArrayEntity *entities = &resEntities.ok.items;
+        UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: Processing %d entities"), entities->data_len);
 
         for (int i = 0; i < entities->data_len; i++) {
+            UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: Processing entity %d of %d"), i + 1, entities->data_len);
             CArrayStruct* models = &entities->data[i].models;
+            UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: Entity %d has %d models"), i, models->data_len);
             this->ParseModelsAndSend(models);
         }
+
+        UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: Cleaning up entity data"));
         FDojoModule::CArrayFree(entities->data, entities->data_len);
+        UE_LOG(LogTemp, Log, TEXT("FetchExistingModels: Completed successfully"));
     });
-    }
+}
 
 void ADojoHelpers::SubscribeOnDojoModelUpdate()
 {
@@ -286,7 +295,7 @@ public:
                                      data[1], "y", "u32", value.Y);
         return value;
     }
-    
+
 };
 
 template<typename T>
@@ -384,7 +393,7 @@ static TArray<FString> ConvertToFeltHexa(const T& value, const char* valueType) 
             return strings;
         }
     }
-    
+
     // Default return value padded to 64 characters
     return TArray<FString>{TEXT("0x") + FString::ChrN(64, TEXT('0'))};
 }
@@ -440,7 +449,7 @@ static void ConvertTyToUnrealEngineType(const Member* member, const char* expect
             output = TypeConverter::ConvertToFVec2(member);
         }
     }
-    
+
 }
 
 
@@ -513,7 +522,7 @@ void ADojoHelpers::ParseModelsAndSend(struct CArrayStruct* models)
         }
 
         UDojoModel* ParsedModel = nullptr;
-        
+
         if (strcmp(ModelName, "dojo_starter-DirectionsAvailable") == 0)
         {
             ParsedModel = \
@@ -575,7 +584,7 @@ void ADojoHelpers::ParseModelsAndSend(struct CArrayStruct* models)
 
 void ADojoHelpers::CallDojoStarterActionsSpawn(const FAccount& account) {
     TArray<FString> args;
-    
+
     this->ExecuteRawDeprecated(account, this->ContractsAddresses["dojo_starter-actions"], \
                      TEXT("spawn"), FString::Join(args, TEXT(",")));
 }
@@ -583,7 +592,7 @@ void ADojoHelpers::CallDojoStarterActionsSpawn(const FAccount& account) {
 void ADojoHelpers::CallControllerDojoStarterActionsSpawn(const FControllerAccount& \
                      account) {
     TArray<FString> args;
-    
+
     this->ExecuteFromOutside(account, this->ContractsAddresses["dojo_starter-actions"], \
                      TEXT("spawn"), FString::Join(args, TEXT(",")));
 }
@@ -604,4 +613,3 @@ void ADojoHelpers::CallControllerDojoStarterActionsMove(const FControllerAccount
     this->ExecuteFromOutside(account, this->ContractsAddresses["dojo_starter-actions"], \
                      TEXT("move"), FString::Join(args, TEXT(",")));
 }
-

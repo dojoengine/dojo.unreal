@@ -5,14 +5,14 @@ using System.IO;
 
 public class Dojo : ModuleRules
 {
-    protected readonly string Version = "1.3.1";
+    protected readonly string Version = "1.7.0";
     protected string VersionPath { get => Path.Combine(ModuleDirectory, Version); }
     protected string LibraryPath { get => Path.Combine(VersionPath, "lib"); }
 
     public Dojo(ReadOnlyTargetRules Target) : base(Target)
     {
         PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-        
+
         PublicSystemIncludePaths.Add(Path.Combine(VersionPath, "include"));
 
         PublicDependencyModuleNames.AddRange(
@@ -34,10 +34,10 @@ public class Dojo : ModuleRules
         {
             string DylibPath = Path.Combine(LibraryPath, "Mac", "libdojo_c.dylib");
             PublicAdditionalLibraries.Add(DylibPath);
-            
+
             // Add runtime dependency for Mac
             RuntimeDependencies.Add("$(PluginDir)/Source/Dojo/" + Version + "/lib/Mac/libdojo_c.dylib");
-            
+
             // Delay load the dylib
             PublicDelayLoadDLLs.Add(Path.Combine(LibraryPath, "Mac", "libdojo_c.dylib"));
         }
@@ -45,6 +45,11 @@ public class Dojo : ModuleRules
         {
             // Use iOS library
             PublicAdditionalLibraries.Add(Path.Combine(ModuleDirectory, Version, "lib", "IOS", "libdojo_c.a"));
+        }
+        else if (Target.Platform == UnrealTargetPlatform.Android)
+        {
+            // Use Android library
+            PublicAdditionalLibraries.Add(Path.Combine(ModuleDirectory, Version, "lib", "Android", "libdojo_c.a"));
         }
     }
 }
